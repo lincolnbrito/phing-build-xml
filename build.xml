@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <project name="phpdeploy" default="help" basedir=".">
+
+    <property name="dir.public" value="."/>
+    
+	<!-- CRIANDO CONJUNTO DE ARQUIVOS -->
+    <fileset dir="${dir.public}" id="php.sources">
+        <!-- Arquivos incluídos -->
+		<include name="**"/>		
+		<!-- Arquivos ignorados --> 
+		<exclude name="build.xml" />
+		<exclude name="*.properties" />
+        <exclude name="images/**"/>
+        <exclude name="**/.git/**"/>
+		<exclude name="**/.empty"/>
+    </fileset>
+   
+   <!-- CRIANDO CONJUNTO DE ARQUIVOS DE IMAGENS -->
+    <fileset dir="${dir.public}/images" id="php.images">
+        <!-- Arquivos incluídos -->
+		<include name="**"/>
+		<!-- Arquivos ignorados-->
+		<exclude name="**/.empty"/>
+    </fileset>
+	
+	
+	<!-- 
+		INFORMAR O AMBIENTE DE DESTINO (deV, test, prod) CARREGANDO ARQUIVO DE PROPRIEDADES
+		CORRESPONDENTE 
+	-->
+	<target name="get-env" description="get the environment for an action">
+       <input propertyname="environment" validargs="dev,test,prod">Enter environment name </input>
+       <property file="${environment}.properties"/>
+    </target>
+	
+	
+	<!-- ALTERANDO ARQUIVOS --> 
+	<target name="change-token" description="change the file tokens on the config files">
+		<copy file="${dir.public}/config/database.php.tpl" tofile="config/database.php" overwrite="true">
+			<filterchain>
+				<replacetokens begintoken="%%" endtoken="%%">
+					<!-- MySQL TOKENS -->
+					<token key="dbname" value="${db.name}" />
+					<token key="dbhost" value="${db.host}" />
+					<token key="dbuser" value="${db.username}" />
+					<token key="dbpass" value="${db.password}" />
+				</replacetokens>
+				
+				<!-- Remove PHP comments -->
+				<stripphpcomments />
+			</filterchain>
+		</copy>
+	</target>
+	
+	<target name="phpcpd" description="Find duplicate code using PHPCPD">
+		<phpcpd minLines="10">
+			<fileset refid="php.sources"/>
+			<formatter type="pmd" outfile="pmd-cpd.xml"/>
+		</phpcpd>
+	</target>
+	
+	<!-- Mede o tamanho do projeto com o PHPLOC - depende do pacote phploc-->
+	<target name="phploc" description="Measure project size using PHPLOC">
+		<exec executable="phploc" logoutput="true" checkreturn="true" level="debug">
+			<arg value="--log-csv"/>
+			<arg value="phploc.csv"/>
+			<arg path="."/>
+		</exec>
+	</target>
+	
+	
+	<!-- EFETUA O DEPLOY -->
+	<target name="deploy" depends="get-env,change-token" description="update the application files in a specific environment">
+		<echo msg="Enviando arquivos para servidor. Aguarde..." />		
+		<!-- Efetua o deploy de arquivos PHP-->
+		<ftpdeploy 
+			host="${ftp.server}" 
+			port="${ftp.port}" 
+			username="${ftp.user}" 
+			password="${ftp.pass}" 
+			dir="." 
+			mode="ascii" 
+			clearfirst="true" 
+			level="info">
+				<fileset refid="php.sources"/>
+		</ftpdeploy>
+		
+		<!-- Efetua o deploy de imagens -->
+		<ftpdeploy 
+			host="${ftp.server}" 
+			port="${ftp.port}" 
+			username="${ftp.user}" 
+			password="${ftp.pass}" 
+			dir="images" 
+			mode="binary" 
+			clearfirst="true">
+				<fileset refid="php.images"/>
+		</ftpdeploy>
+		<echo msg="Completo!" />
+	</target>
+	
+	<!-- EFETUA O DEPLOY COMPLETO-->
+	<target name="deploy-all" description="Efetua o deploy completo">
+		
+	</target>
+	
+	<!-- RODA OS TESTES UNITÁRIOS-->
+	<target name="run-tests" description="Roda todos os testes">
+		
+	</target>
+	
+</project>
